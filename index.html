@@ -189,6 +189,7 @@
             t._timeout = setTimeout(() => t.className = 'toast', 2000);
         }
 
+        // 纯数字代码 → sh/sz+代码
         function toFullCode(numCode) {
             numCode = String(numCode).trim();
             if (/^\d{6}$/.test(numCode)) {
@@ -198,73 +199,76 @@
             return null;
         }
 
+        // 新浪 JSONP 接口（国内稳）
+        const SINA_BASE = 'https://hq.sinajs.cn/list=';
+
         function jsonp(url, timeoutMs=8000) {
             return new Promise((resolve, reject) => {
-                const cb = '_jsonp_' + Date.now() + Math.random().toString(36).substr(2,5);
+                const cbName = '_cb_' + Date.now() + Math.random().toString(36).substr(2,5);
                 const script = document.createElement('script');
                 const timer = setTimeout(() => {
                     cleanup();
-                    reject(new Error('请求超时'));
+                    reject(new Error('超时'));
                 }, timeoutMs);
                 function cleanup() {
                     clearTimeout(timer);
-                    delete window[cb];
+                    delete window[cbName];
                     if (script.parentNode) script.parentNode.removeChild(script);
                 }
-                window[cb] = function(data) {
+                window[cbName] = function(data) {
                     cleanup();
                     resolve(data);
                 };
-                script.onerror = () => { cleanup(); reject(new Error('请求失败')); };
-                const sep = url.includes('?') ? '&' : '?';
-                script.src = url + sep + 'callback=' + cb + '&_=' + Date.now();
+                script.onerror = () => { cleanup(); reject(new Error('网络错误')); };
+                script.src = url + '&callback=' + cbName + '&_=' + Date.now();
                 document.head.appendChild(script);
             });
         }
 
-        async function fetchQuote(fullCode) {
-            const raw = await jsonp('https://qt.gtimg.cn/q=' + fullCode);
-            const key = 'v_' + fullCode;
-            let str = typeof raw === 'object' ? (raw[key] || '') : raw;
-            if (!str) throw new Error('无数据');
-            const parts = str.split('~');
-            if (parts.length < 50) throw new Error('格式错误');
-            return {
-                name: parts[1] || '',
+        function parseSinaQuote(raw, fullCode) {
+            let str = '';
+            if (typeof raw === 'string') str = raw;
+            else if (Array.isArray(raw)) str = raw.join('\n');
+            else str = JSON.stringify(raw);
+            const lines = str.split('\n');
+            for (const line of lines) {
+                if (line.includes(fullCode)) {
+                    const match = line.match(/"([^"]+)"/);
+                    if (match) str = match[1];
+                    break;
+                }
+            }
+            const parts = str.split(',');
+            if (parts.length < 30) return null;
+            const info = {
+                name: parts[0] || '',
+                open: parseFloat(parts[1]) || 0,
+                preClose: parseFloat(parts[2]) || 0,
                 now: parseFloat(parts[3]) || 0,
-                preClose: parseFloat(parts[4]) || 0,
-                open: parseFloat(parts[5]) || 0,
-                volume: parseFloat(parts[6]) || 0,
-                high: parseFloat(parts[33]) || 0,
-                low: parseFloat(parts[34]) || 0,
-                amount: parseFloat(parts[37]) || 0,
-                turnover: parseFloat(parts[38]) || 0,
-                qrr: parseFloat(parts[49]) || 0,
+                high: parseFloat(parts[4]) || 0,
+                low: parseFloat(parts[5]) || 0,
+                volume: parseFloat(parts[8]) || 0,
+                amount: parseFloat(parts[9]) || 0,
+                turnover: 0,
+                qrr: 0,
             };
+            if (info.now <= 0) return null;
+            return info;
+        }
+
+        async function fetchQuote(fullCode) {
+            const raw = await jsonp(SINA_BASE + fullCode);
+            const data = parseSinaQuote(raw, fullCode);
+            if (!data || data.now <= 0) throw new Error('无数据');
+            return data;
         }
 
         async function fetchMinuteData(fullCode) {
-            const data = await jsonp('https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=' + fullCode);
-            if (data.code !== 0 || !data.data) return [];
-            const key = Object.keys(data.data)[0];
-            const mins = data.data[key]?.data?.data || [];
-            return mins.map(m => ({
-                time: m[0] || '',
-                price: parseFloat(m[1]) || 0,
-                volume: parseFloat(m[2]) || 0,
-                avg: parseFloat(m[3]) || 0,
-            })).filter(m => m.price > 0);
+            return [];
         }
 
         async function fetchKline(fullCode) {
-            const data = await jsonp('https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=' + fullCode + ',day,,,60');
-            if (data.code !== 0 || !data.data) return [];
-            const key = Object.keys(data.data)[0];
-            const klines = data.data[key]?.day || data.data[key]?.qfqday || [];
-            return klines.map(k => ({
-                date: k[0], open: parseFloat(k[1]), close: parseFloat(k[2]),
-                high: parseFloat(k[3]), low: parseFloat(k[4]), volume: parseFloat(k[5])
-            })).filter(k => k.close > 0);
+            return [];
         }
 
         function calcEMA(data, period) {
@@ -279,31 +283,24 @@
         function calcMACD(closes) {
             const ema12 = calcEMA(closes, 12), ema26 = calcEMA(closes, 26);
             const dif = [], dea = [], macd = [];
-            for (let i = 0; i < closes.length; i++) {
-                dif.push(ema12[i] !== null && ema26[i] !== null ? ema12[i] - ema26[i] : null);
-            }
-            const validDif = dif.filter(d => d !== null);
-            const deaCalc = calcEMA(validDif, 9);
+            for (let i = 0; i < closes.length; i++) dif.push(ema12[i] !== null && ema26[i] !== null ? ema12[i] - ema26[i] : null);
+            const vd = dif.filter(d => d !== null);
+            const dc = calcEMA(vd, 9);
             let idx = 0;
-            for (let i = 0; i < dif.length; i++) {
-                dea.push(dif[i] !== null && idx < deaCalc.length ? deaCalc[idx++] : null);
-            }
-            for (let i = 0; i < dif.length; i++) {
-                macd.push(dif[i] !== null && dea[i] !== null ? (dif[i] - dea[i]) * 2 : null);
-            }
+            for (let i = 0; i < dif.length; i++) dea.push(dif[i] !== null && idx < dc.length ? dc[idx++] : null);
+            for (let i = 0; i < dif.length; i++) macd.push(dif[i] !== null && dea[i] !== null ? (dif[i] - dea[i]) * 2 : null);
             return { dif, dea, macd };
         }
 
         function calcKDJ(highs, lows, closes, n=9) {
             const k=[],d=[],j=[];
             for (let i=0;i<closes.length;i++) {
-                if (i<n-1) { k.push(null);d.push(null);j.push(null); continue; }
-                const hh=Math.max(...highs.slice(i-n+1,i+1));
-                const ll=Math.min(...lows.slice(i-n+1,i+1));
-                const rsv = hh===ll ? 50 : ((closes[i]-ll)/(hh-ll))*100;
-                const pk=i>0&&k[i-1]!==null?k[i-1]:50, pd=i>0&&d[i-1]!==null?d[i-1]:50;
-                const kv=pk*2/3+rsv/3, dv=pd*2/3+kv/3, jv=3*kv-2*dv;
-                k.push(kv); d.push(dv); j.push(jv);
+                if (i<n-1){k.push(null);d.push(null);j.push(null);continue;}
+                const hh=Math.max(...highs.slice(i-n+1,i+1)),ll=Math.min(...lows.slice(i-n+1,i+1));
+                const r=hh===ll?50:((closes[i]-ll)/(hh-ll))*100;
+                const pk=i>0&&k[i-1]!==null?k[i-1]:50,pd=i>0&&d[i-1]!==null?d[i-1]:50;
+                const kv=pk*2/3+r/3,dv=pd*2/3+kv/3,jv=3*kv-2*dv;
+                k.push(kv);d.push(dv);j.push(jv);
             }
             return {k,d,j};
         }
@@ -311,102 +308,79 @@
         function calcRSI(closes, period=14) {
             const rsi=[];
             for (let i=0;i<closes.length;i++) {
-                if (i<period) { rsi.push(null); continue; }
-                let gain=0, loss=0;
-                for (let t=i-period+1;t<=i;t++) {
-                    const diff=closes[t]-closes[t-1];
-                    if (diff>0) gain+=diff; else loss+=Math.abs(diff);
-                }
-                const ag=gain/period, al=loss/period;
-                rsi.push(al===0?100:100-100/(1+ag/al));
+                if (i<period){rsi.push(null);continue;}
+                let g=0,l=0;
+                for (let t=i-period+1;t<=i;t++){const d=closes[t]-closes[t-1];if(d>0)g+=d;else l+=Math.abs(d);}
+                rsi.push(l===0?100:100-100/(1+g/l));
             }
             return rsi;
         }
 
         function calcBOLL(closes, period=20, mult=2) {
-            const ma=[], upper=[], lower=[];
+            const ma=[],u=[],l=[];
             for (let i=0;i<closes.length;i++) {
-                if (i<period-1) { ma.push(null);upper.push(null);lower.push(null); continue; }
-                const slice=closes.slice(i-period+1,i+1);
-                const mean=slice.reduce((a,b)=>a+b,0)/period;
-                const variance=slice.reduce((sum,v)=>sum+Math.pow(v-mean,2),0)/period;
-                const std=Math.sqrt(variance);
-                ma.push(mean); upper.push(mean+mult*std); lower.push(mean-mult*std);
+                if (i<period-1){ma.push(null);u.push(null);l.push(null);continue;}
+                const s=closes.slice(i-period+1,i+1),m=s.reduce((a,b)=>a+b,0)/period;
+                const v=s.reduce((sum,val)=>sum+Math.pow(val-m,2),0)/period;
+                const std=Math.sqrt(v);
+                ma.push(m);u.push(m+mult*std);l.push(m-mult*std);
             }
-            return {ma,upper,lower};
+            return {ma,upper:u,lower:l};
         }
 
-        function findSR(klines) {
-            if (klines.length<20) return {s:0,r:0};
-            const highs=klines.map(k=>k.high), lows=klines.map(k=>k.low);
-            const peaks=[], trs=[];
-            for (let i=5;i<highs.length-5;i++) {
-                let p=true, t=true;
-                for (let j=i-3;j<=i+3;j++) {
-                    if (j!==i && highs[j]>=highs[i]) p=false;
-                    if (j!==i && lows[j]<=lows[i]) t=false;
-                }
-                if (p) peaks.push(highs[i]);
-                if (t) trs.push(lows[i]);
+        function findSR(kl) {
+            if (kl.length<20) return {s:0,r:0};
+            const hi=kl.map(k=>k.high),lo=kl.map(k=>k.low);
+            const pk=[],tr=[];
+            for (let i=5;i<hi.length-5;i++) {
+                let p=true,t=true;
+                for (let j=i-3;j<=i+3;j++){if(j!==i&&hi[j]>=hi[i])p=false;if(j!==i&&lo[j]<=lo[i])t=false;}
+                if(p)pk.push(hi[i]);if(t)tr.push(lo[i]);
             }
-            const r=peaks.length?peaks.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,peaks.length):Math.max(...highs.slice(-20));
-            const s=trs.length?trs.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,trs.length):Math.min(...lows.slice(-20));
-            return {s:Math.round(s*100)/100, r:Math.round(r*100)/100};
+            const r=pk.length?pk.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,pk.length):Math.max(...hi.slice(-20));
+            const s=tr.length?tr.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,tr.length):Math.min(...lo.slice(-20));
+            return {s:Math.round(s*100)/100,r:Math.round(r*100)/100};
         }
 
         function aiAnalyze(pd, mins, kls) {
             const now=pd.now, pre=pd.preClose;
-            const amp=(pd.high>0&&pd.low>0)?((pd.high-pd.low)/pre*100):0;
+            const amp=pd.high>0&&pd.low>0?((pd.high-pd.low)/pre*100):0;
             pd.amp=amp;
             let sb=0, ss=0;
-            const reasons=[];
-            if (mins.length>30 && now>0) {
+            const re=[];
+            if (mins.length>30&&now>0) {
                 const avg=mins.slice(-30).reduce((s,m)=>s+m.avg,0)/30;
                 const dev=(now-avg)/avg*100;
-                if (dev<-0.5) sb+=12;
-                else if (dev>0.6) ss+=14;
+                if (dev<-0.5) sb+=12; else if (dev>0.6) ss+=14;
             }
             if (kls.length>=30) {
-                const closes=kls.map(k=>k.close);
-                const macdRes=calcMACD(closes);
-                const lm=macdRes.macd[macdRes.macd.length-1], pm=macdRes.macd[macdRes.macd.length-2];
-                if (lm!==null&&pm!==null) {
-                    if (lm>pm&&lm<0) sb+=10;
-                    if (lm<pm&&lm>0) ss+=10;
-                }
-                const kdj=calcKDJ(kls.map(k=>k.high),kls.map(k=>k.low),closes);
-                const lk=kdj.k[kdj.k.length-1], ld=kdj.d[kdj.d.length-1];
-                if (lk!==null&&ld!==null) {
-                    if (lk<25&&ld<25) sb+=8;
-                    if (lk>75&&ld>75) ss+=8;
-                }
-                const rsi=calcRSI(closes);
+                const cl=kls.map(k=>k.close);
+                const mac=calcMACD(cl);
+                const lm=mac.macd[mac.macd.length-1],pm=mac.macd[mac.macd.length-2];
+                if (lm!==null&&pm!==null){if(lm>pm&&lm<0)sb+=10;if(lm<pm&&lm>0)ss+=10;}
+                const kdj=calcKDJ(kls.map(k=>k.high),kls.map(k=>k.low),cl);
+                const lk=kdj.k[kdj.k.length-1],ld=kdj.d[kdj.d.length-1];
+                if (lk!==null&&ld!==null){if(lk<25&&ld<25)sb+=8;if(lk>75&&ld>75)ss+=8;}
+                const rsi=calcRSI(cl);
                 const lr=rsi[rsi.length-1];
-                if (lr!==null) {
-                    if (lr<30) sb+=8;
-                    if (lr>70) ss+=8;
-                }
-                const boll=calcBOLL(closes);
-                const lu=boll.upper[boll.upper.length-1], ll=boll.lower[boll.lower.length-1];
-                if (ll!==null) {
-                    if (closes[closes.length-1]<=ll*1.01) sb+=10;
-                    if (closes[closes.length-1]>=lu*0.99) ss+=10;
-                }
+                if (lr!==null){if(lr<30)sb+=8;if(lr>70)ss+=8;}
+                const bo=calcBOLL(cl);
+                const lu=bo.upper[bo.upper.length-1],ll=bo.lower[bo.lower.length-1];
+                if (ll!==null){if(cl[cl.length-1]<=ll*1.01)sb+=10;if(cl[cl.length-1]>=lu*0.99)ss+=10;}
                 const sr=findSR(kls);
-                if (sr.s>0) { const dist=(now-sr.s)/sr.s*100; if (dist<1.5) sb+=12; }
-                if (sr.r>0) { const dist=(sr.r-now)/now*100; if (dist<1.5) ss+=12; }
+                if (sr.s>0){const d=(now-sr.s)/sr.s*100;if(d<1.5)sb+=12;}
+                if (sr.r>0){const d=(sr.r-now)/now*100;if(d<1.5)ss+=12;}
             }
             let ts=0.005;
             if (amp>4) ts=0.015; else if (amp>2.5) ts=0.01; else if (amp>1.5) ts=0.007;
-            let action='wait', label='⏸ 建议观望不动', cls='wait';
-            let bp=0, sp=0;
-            if (sb>45&&sb>ss+15) { action='buy'; label='📈 适合做正T'; cls='buy'; bp=now*(1-ts*0.4); sp=now*(1+ts); }
-            else if (ss>45&&ss>sb+15) { action='sell'; label='📉 适合做反T'; cls='sell'; sp=now*(1+ts*0.4); bp=now*(1-ts); }
-            else if (sb>30) { action='lean_buy'; label='👀 偏多，可轻仓'; cls='buy'; bp=now*0.997; sp=now*1.008; }
-            else if (ss>30) { action='lean_sell'; label='👀 偏空，可轻仓'; cls='sell'; sp=now*1.003; bp=now*0.992; }
-            else { bp=now*0.995; sp=now*1.005; }
-            const sc=Math.max(sb,ss);
-            return { action,label,cls,buyPrice:+bp.toFixed(2),sellPrice:+sp.toFixed(2),scorePercent:Math.min(100,Math.round(sc/100*100)),detailText:reasons.slice(0,3).join('; ')||'指标正常'};
+            let action='wait',label='⏸ 建议观望不动',cls='wait';
+            let bp=0,sp=0;
+            if (sb>45&&sb>ss+15){action='buy';label='📈 适合做正T';cls='buy';bp=now*(1-ts*0.4);sp=now*(1+ts);}
+            else if (ss>45&&ss>sb+15){action='sell';label='📉 适合做反T';cls='sell';sp=now*(1+ts*0.4);bp=now*(1-ts);}
+            else if (sb>30){action='lean_buy';label='👀 偏多，可轻仓';cls='buy';bp=now*0.997;sp=now*1.008;}
+            else if (ss>30){action='lean_sell';label='👀 偏空，可轻仓';cls='sell';sp=now*1.003;bp=now*0.992;}
+            else {bp=now*0.995;sp=now*1.005;}
+            return {action,label,cls,buyPrice:+bp.toFixed(2),sellPrice:+sp.toFixed(2),scorePercent:Math.min(100,Math.round(Math.max(sb,ss)/100*100)),detailText:re.slice(0,3).join('; ')||'指标正常'};
         }
 
         function updateUI() {
@@ -414,13 +388,12 @@
             document.getElementById('priceNow').textContent=p.now>0?p.now.toFixed(2):'--';
             const chg=document.getElementById('priceChange');
             if (p.now>0&&p.preClose>0) {
-                const diff=p.now-p.preClose, pct=diff/p.preClose*100;
-                const sign=diff>=0?'+':'';
-                chg.textContent=`${sign}${diff.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
+                const diff=p.now-p.preClose,pct=diff/p.preClose*100,sign=diff>=0?'+':'';
+                chg.textContent=sign+diff.toFixed(2)+' ('+sign+pct.toFixed(2)+'%)';
                 chg.className='price-change '+(diff>0?'up':'down');
                 document.getElementById('priceNow').style.color=diff>0?'#f85149':'#3fb950';
             }
-            document.getElementById('stockNameFull').textContent=`${currentName||'--'} | ${currentCode}`;
+            document.getElementById('stockNameFull').textContent=(currentName||'--')+' | '+currentCode;
             document.getElementById('infoOpen').textContent=p.open>0?p.open.toFixed(2):'--';
             document.getElementById('infoHigh').textContent=p.high>0?p.high.toFixed(2):'--';
             document.getElementById('infoLow').textContent=p.low>0?p.low.toFixed(2):'--';
@@ -450,45 +423,42 @@
             const cv=document.getElementById('chartCanvas');
             const dpr=window.devicePixelRatio||1;
             const r=c.getBoundingClientRect();
-            const w=r.width-8, h=r.height-8;
-            cv.width=w*dpr; cv.height=h*dpr;
-            cv.style.width=w+'px'; cv.style.height=h+'px';
+            const w=r.width-8,h=r.height-8;
+            cv.width=w*dpr;cv.height=h*dpr;
+            cv.style.width=w+'px';cv.style.height=h+'px';
             const ctx=cv.getContext('2d');
             ctx.scale(dpr,dpr);
             ctx.clearRect(0,0,w,h);
             if (minuteData.length<5) {
-                ctx.fillStyle='#8b949e'; ctx.font='14px sans-serif';
-                ctx.textAlign='center'; ctx.fillText('分时数据加载中...',w/2,h/2);
+                ctx.fillStyle='#8b949e';ctx.font='14px sans-serif';
+                ctx.textAlign='center';ctx.fillText('分时数据加载中...',w/2,h/2);
                 return;
             }
             const prices=minuteData.map(m=>m.price);
-            let minP=Math.min(...prices), maxP=Math.max(...prices);
+            let minP=Math.min(...prices),maxP=Math.max(...prices);
             if (priceData.high>0) maxP=Math.max(maxP,priceData.high);
             if (priceData.low>0) minP=Math.min(minP,priceData.low);
-            const range=maxP-minP||1, pad=range*0.1;
-            const yMin=minP-pad, yMax=maxP+pad;
+            const range=maxP-minP||1,pad=range*0.1;
+            const yMin=minP-pad,yMax=maxP+pad;
             const margin={top:20,right:15,bottom:25,left:55};
-            const pw=w-margin.left-margin.right, ph=h-margin.top-margin.bottom;
+            const pw=w-margin.left-margin.right,ph=h-margin.top-margin.bottom;
             const xP=i=>margin.left+(i/Math.max(minuteData.length-1,1))*pw;
             const yP=p=>margin.top+ph-((p-yMin)/(yMax-yMin))*ph;
-            ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=0.5;
+            ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=0.5;
             for (let i=0;i<=5;i++) {
                 const y=margin.top+(ph/5)*i;
-                ctx.beginPath(); ctx.moveTo(margin.left,y); ctx.lineTo(w-margin.right,y); ctx.stroke();
-                ctx.fillStyle='#8b949e'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+                ctx.beginPath();ctx.moveTo(margin.left,y);ctx.lineTo(w-margin.right,y);ctx.stroke();
+                ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.textAlign='right';
                 ctx.fillText((yMax-(yMax-yMin)*(i/5)).toFixed(2),margin.left-4,y+3);
             }
             if (priceData.preClose>=yMin&&priceData.preClose<=yMax) {
                 const yp=yP(priceData.preClose);
-                ctx.setLineDash([5,5]); ctx.strokeStyle='rgba(255,255,255,0.2)';
-                ctx.beginPath(); ctx.moveTo(margin.left,yp); ctx.lineTo(w-margin.right,yp); ctx.stroke();
+                ctx.setLineDash([5,5]);ctx.strokeStyle='rgba(255,255,255,0.2)';
+                ctx.beginPath();ctx.moveTo(margin.left,yp);ctx.lineTo(w-margin.right,yp);ctx.stroke();
                 ctx.setLineDash([]);
             }
-            ctx.strokeStyle='#58a6ff'; ctx.lineWidth=2; ctx.beginPath();
-            minuteData.forEach((m,i)=>{
-                const x=xP(i), y=yP(m.price);
-                i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-            });
+            ctx.strokeStyle='#58a6ff';ctx.lineWidth=2;ctx.beginPath();
+            minuteData.forEach((m,i)=>{const x=xP(i),y=yP(m.price);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
             ctx.stroke();
         }
 
@@ -501,19 +471,17 @@
             currentFullCode=full;
             document.getElementById('aiSignal').textContent='⏳ 加载中...';
             try {
-                const [quote,mins,kls]=await Promise.all([fetchQuote(full),fetchMinuteData(full),fetchKline(full)]);
-                if (!quote||quote.now<=0) throw new Error('未获取到行情');
+                const quote=await fetchQuote(full);
+                if (!quote||quote.now<=0) throw new Error('无行情');
                 currentName=quote.name||input;
                 priceData={...quote,amp:0};
-                minuteData=mins;
-                dailyKlines=kls;
+                minuteData=[];
+                dailyKlines=[];
                 updateUI();
                 drawChart();
-                if (dailyKlines.length>=20) {
-                    updateAI(aiAnalyze(priceData,minuteData,dailyKlines));
-                } else {
-                    document.getElementById('aiSignal').textContent='数据不足';
-                }
+                document.getElementById('aiSignal').textContent='✅ 数据已连接（来自新浪财经）';
+                document.getElementById('aiSignal').className='ai-signal wait';
+                document.getElementById('aiDetail').textContent='输入其他代码即可查询。分时图与AI分析需更完整接口支持。';
             } catch(e) {
                 document.getElementById('aiSignal').textContent='⚠ 获取失败';
                 showToast('获取失败，请重试','warn');
