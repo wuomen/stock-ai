@@ -39,15 +39,12 @@
         }
         .header .logo { font-size: 1.1rem; font-weight: 700; color: #fff; white-space: nowrap; }
         .header .logo .dot { color: var(--green); }
-        .search-box {
-            flex: 1; display: flex; gap: 6px; align-items: center;
-        }
+        .search-box { flex: 1; display: flex; gap: 6px; align-items: center; }
         .search-box input {
             flex: 1; padding: 10px 12px; border-radius: 10px;
             border: 1px solid var(--border); background: var(--card); color: #fff;
             font-size: var(--font-md); font-weight: 600; outline: none;
         }
-        .search-box input::placeholder { color: #6e7681; }
         .btn {
             padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
             background: var(--card); color: #fff; font-size: var(--font-sm);
@@ -60,11 +57,8 @@
         .price-card {
             background: var(--card); border-radius: var(--radius); padding: 14px 16px;
             margin: 8px 0; border: 1px solid var(--border);
-            display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
         }
-        .price-now {
-            font-size: 2.4rem; font-weight: 800; letter-spacing: -1px; line-height: 1;
-        }
+        .price-now { font-size: 2.4rem; font-weight: 800; }
         .price-change { font-size: 1.25rem; font-weight: 700; }
         .price-change.up { color: var(--red); }
         .price-change.down { color: var(--green); }
@@ -87,23 +81,19 @@
         .ai-panel {
             background: linear-gradient(135deg, #1a1f2e, #161b22);
             border-radius: var(--radius); border: 1.5px solid #30363d;
-            padding: 14px 16px; margin: 8px 0; position: relative;
+            padding: 14px 16px; margin: 8px 0;
         }
         .ai-badge {
             background: linear-gradient(135deg, #58a6ff, #1f6feb);
             color: #fff; font-size: var(--font-xs); font-weight: 700;
             padding: 4px 10px; border-radius: 20px;
         }
-        .ai-signal {
-            font-size: 1.25rem; font-weight: 800; padding: 6px 0;
-        }
+        .ai-signal { font-size: 1.25rem; font-weight: 800; padding: 6px 0; }
         .ai-signal.buy { color: var(--red); }
         .ai-signal.sell { color: var(--green); }
         .ai-signal.wait { color: var(--yellow); }
         .ai-detail { font-size: var(--font-sm); color: #c9d1d9; margin-top: 4px; }
-        .ai-prices {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;
-        }
+        .ai-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .ai-price-item {
             background: rgba(255,255,255,0.03); border-radius: 10px;
             padding: 10px; text-align: center; border: 1px solid rgba(255,255,255,0.06);
@@ -112,10 +102,8 @@
         .ai-price-item .val { font-weight: 700; font-size: var(--font-md); }
         .ai-price-item .val.sell-p { color: var(--green); }
         .ai-price-item .val.buy-p { color: var(--red); }
-        .score-bar {
-            flex: 1; height: 4px; border-radius: 2px; background: #21262d; overflow: hidden;
-        }
-        .score-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+        .score-bar { flex: 1; height: 4px; border-radius: 2px; background: #21262d; overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 2px; }
         .toast {
             position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
             background: #1f6feb; color: #fff; padding: 10px 22px;
@@ -137,11 +125,11 @@
     </div>
 
     <div class="price-card" id="priceCard">
-        <div style="width:100%">
-            <span class="price-now" id="priceNow">--</span>
-            <span class="price-change" id="priceChange">--</span>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <span class="price-now" id="priceNow" style="color:#e6edf3">--</span>
+            <span class="price-change" id="priceChange" style="color:#8b949e">--</span>
         </div>
-        <div style="font-size:var(--font-xs);color:var(--sub);width:100%" id="stockNameFull">输入代码查看实时行情</div>
+        <div style="font-size:var(--font-xs);color:var(--sub);margin-top:4px" id="stockNameFull">输入代码查看实时行情</div>
         <div class="info-grid">
             <div>开盘<span id="infoOpen">--</span></div>
             <div>最高<span id="infoHigh">--</span></div>
@@ -186,15 +174,13 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // ==================== 全局状态 ====================
-        let currentCode = '';          // 纯数字代码
-        let currentFullCode = '';      // sh/sz+代码
+        let currentCode = '';
+        let currentFullCode = '';
         let currentName = '';
         let priceData = { now:0, open:0, high:0, low:0, preClose:0, volume:0, amount:0, turnover:0, qrr:0 };
         let minuteData = [];
         let dailyKlines = [];
 
-        // ==================== 工具函数 ====================
         function showToast(msg, type='') {
             const t = document.getElementById('toast');
             t.textContent = msg;
@@ -203,7 +189,6 @@
             t._timeout = setTimeout(() => t.className = 'toast', 2000);
         }
 
-        // 数字代码转标准代码
         function toFullCode(numCode) {
             numCode = String(numCode).trim();
             if (/^\d{6}$/.test(numCode)) {
@@ -213,7 +198,6 @@
             return null;
         }
 
-        // JSONP 请求
         function jsonp(url, timeoutMs=8000) {
             return new Promise((resolve, reject) => {
                 const cb = '_jsonp_' + Date.now() + Math.random().toString(36).substr(2,5);
@@ -238,10 +222,8 @@
             });
         }
 
-        // ==================== 数据接口 ====================
         async function fetchQuote(fullCode) {
-            const url = `https://qt.gtimg.cn/q=${fullCode}`;
-            const raw = await jsonp(url);
+            const raw = await jsonp('https://qt.gtimg.cn/q=' + fullCode);
             const key = 'v_' + fullCode;
             let str = typeof raw === 'object' ? (raw[key] || '') : raw;
             if (!str) throw new Error('无数据');
@@ -262,8 +244,7 @@
         }
 
         async function fetchMinuteData(fullCode) {
-            const url = `https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=${fullCode}`;
-            const data = await jsonp(url);
+            const data = await jsonp('https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=' + fullCode);
             if (data.code !== 0 || !data.data) return [];
             const key = Object.keys(data.data)[0];
             const mins = data.data[key]?.data?.data || [];
@@ -276,8 +257,7 @@
         }
 
         async function fetchKline(fullCode) {
-            const url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${fullCode},day,,,60`;
-            const data = await jsonp(url);
+            const data = await jsonp('https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=' + fullCode + ',day,,,60');
             if (data.code !== 0 || !data.data) return [];
             const key = Object.keys(data.data)[0];
             const klines = data.data[key]?.day || data.data[key]?.qfqday || [];
@@ -287,7 +267,6 @@
             })).filter(k => k.close > 0);
         }
 
-        // ==================== 技术分析（与前版相同，已精简） ====================
         function calcEMA(data, period) {
             if (data.length < period) return Array(data.length).fill(null);
             const k = 2 / (period + 1);
@@ -301,19 +280,16 @@
             const ema12 = calcEMA(closes, 12), ema26 = calcEMA(closes, 26);
             const dif = [], dea = [], macd = [];
             for (let i = 0; i < closes.length; i++) {
-                if (ema12[i] !== null && ema26[i] !== null) dif.push(ema12[i] - ema26[i]);
-                else dif.push(null);
+                dif.push(ema12[i] !== null && ema26[i] !== null ? ema12[i] - ema26[i] : null);
             }
             const validDif = dif.filter(d => d !== null);
             const deaCalc = calcEMA(validDif, 9);
             let idx = 0;
             for (let i = 0; i < dif.length; i++) {
-                if (dif[i] !== null && idx < deaCalc.length) dea.push(deaCalc[idx++]);
-                else dea.push(null);
+                dea.push(dif[i] !== null && idx < deaCalc.length ? deaCalc[idx++] : null);
             }
             for (let i = 0; i < dif.length; i++) {
-                if (dif[i] !== null && dea[i] !== null) macd.push((dif[i] - dea[i]) * 2);
-                else macd.push(null);
+                macd.push(dif[i] !== null && dea[i] !== null ? (dif[i] - dea[i]) * 2 : null);
             }
             return { dif, dea, macd };
         }
@@ -325,8 +301,8 @@
                 const hh=Math.max(...highs.slice(i-n+1,i+1));
                 const ll=Math.min(...lows.slice(i-n+1,i+1));
                 const rsv = hh===ll ? 50 : ((closes[i]-ll)/(hh-ll))*100;
-                const prevK=i>0&&k[i-1]!==null?k[i-1]:50, prevD=i>0&&d[i-1]!==null?d[i-1]:50;
-                const kv=prevK*2/3+rsv/3, dv=prevD*2/3+kv/3, jv=3*kv-2*dv;
+                const pk=i>0&&k[i-1]!==null?k[i-1]:50, pd=i>0&&d[i-1]!==null?d[i-1]:50;
+                const kv=pk*2/3+rsv/3, dv=pd*2/3+kv/3, jv=3*kv-2*dv;
                 k.push(kv); d.push(dv); j.push(jv);
             }
             return {k,d,j};
@@ -360,262 +336,192 @@
             return {ma,upper,lower};
         }
 
-        function findSupportResistance(klines) {
-            if (klines.length<20) return {support:0,resistance:0};
+        function findSR(klines) {
+            if (klines.length<20) return {s:0,r:0};
             const highs=klines.map(k=>k.high), lows=klines.map(k=>k.low);
-            const peaks=[], troughs=[];
+            const peaks=[], trs=[];
             for (let i=5;i<highs.length-5;i++) {
-                let isPeak=true;
-                for (let j=i-3;j<=i+3;j++) if (j!==i && highs[j]>=highs[i]) { isPeak=false; break; }
-                if (isPeak) peaks.push(highs[i]);
-                let isTrough=true;
-                for (let j=i-3;j<=i+3;j++) if (j!==i && lows[j]<=lows[i]) { isTrough=false; break; }
-                if (isTrough) troughs.push(lows[i]);
+                let p=true, t=true;
+                for (let j=i-3;j<=i+3;j++) {
+                    if (j!==i && highs[j]>=highs[i]) p=false;
+                    if (j!==i && lows[j]<=lows[i]) t=false;
+                }
+                if (p) peaks.push(highs[i]);
+                if (t) trs.push(lows[i]);
             }
-            const res = peaks.length>0 ? peaks.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,peaks.length) : Math.max(...highs.slice(-20));
-            const sup = troughs.length>0 ? troughs.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,troughs.length) : Math.min(...lows.slice(-20));
-            return {support:Math.round(sup*100)/100, resistance:Math.round(res*100)/100};
+            const r=peaks.length?peaks.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,peaks.length):Math.max(...highs.slice(-20));
+            const s=trs.length?trs.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,trs.length):Math.min(...lows.slice(-20));
+            return {s:Math.round(s*100)/100, r:Math.round(r*100)/100};
         }
 
-        function aiAnalyze(priceData, minuteData, klines) {
-            const now=priceData.now, preClose=priceData.preClose;
-            const amp = (priceData.high>0 && priceData.low>0) ? ((priceData.high-priceData.low)/preClose*100) : 0;
-            priceData.amp = amp;
-            let scoreBuy=0, scoreSell=0;
+        function aiAnalyze(pd, mins, kls) {
+            const now=pd.now, pre=pd.preClose;
+            const amp=(pd.high>0&&pd.low>0)?((pd.high-pd.low)/pre*100):0;
+            pd.amp=amp;
+            let sb=0, ss=0;
             const reasons=[];
-
-            if (minuteData.length>30 && now>0) {
-                const avgs = minuteData.slice(-30).reduce((s,m)=>s+m.avg,0)/30;
-                const dev = (now-avgs)/avgs*100;
-                if (dev<-0.5) { scoreBuy+=12; reasons.push('价格低于均线'); }
-                else if (dev>0.6) { scoreSell+=14; reasons.push('价格高于均线'); }
+            if (mins.length>30 && now>0) {
+                const avg=mins.slice(-30).reduce((s,m)=>s+m.avg,0)/30;
+                const dev=(now-avg)/avg*100;
+                if (dev<-0.5) sb+=12;
+                else if (dev>0.6) ss+=14;
             }
-
-            if (klines.length>=30) {
-                const closes=klines.map(k=>k.close), highs=klines.map(k=>k.high), lows=klines.map(k=>k.low);
-                const volumes=klines.map(k=>k.volume);
+            if (kls.length>=30) {
+                const closes=kls.map(k=>k.close);
                 const macdRes=calcMACD(closes);
-                const lastMacd=macdRes.macd[macdRes.macd.length-1], prevMacd=macdRes.macd[macdRes.macd.length-2];
-                const lastDif=macdRes.dif[macdRes.dif.length-1], lastDea=macdRes.dea[macdRes.dea.length-1];
-                if (lastMacd!==null && prevMacd!==null) {
-                    if (lastMacd>prevMacd && lastMacd<0) { scoreBuy+=10; reasons.push('MACD绿柱缩短'); }
-                    if (lastMacd<prevMacd && lastMacd>0) { scoreSell+=10; reasons.push('MACD红柱缩短'); }
+                const lm=macdRes.macd[macdRes.macd.length-1], pm=macdRes.macd[macdRes.macd.length-2];
+                if (lm!==null&&pm!==null) {
+                    if (lm>pm&&lm<0) sb+=10;
+                    if (lm<pm&&lm>0) ss+=10;
                 }
-                const kdj=calcKDJ(highs,lows,closes);
-                const lastK=kdj.k[kdj.k.length-1], lastD=kdj.d[kdj.d.length-1];
-                if (lastK!==null && lastD!==null) {
-                    if (lastK<25 && lastD<25) { scoreBuy+=8; reasons.push('KDJ超卖'); }
-                    if (lastK>75 && lastD>75) { scoreSell+=8; reasons.push('KDJ超买'); }
+                const kdj=calcKDJ(kls.map(k=>k.high),kls.map(k=>k.low),closes);
+                const lk=kdj.k[kdj.k.length-1], ld=kdj.d[kdj.d.length-1];
+                if (lk!==null&&ld!==null) {
+                    if (lk<25&&ld<25) sb+=8;
+                    if (lk>75&&ld>75) ss+=8;
                 }
                 const rsi=calcRSI(closes);
-                const lastRSI=rsi[rsi.length-1];
-                if (lastRSI!==null) {
-                    if (lastRSI<30) { scoreBuy+=8; reasons.push('RSI超卖'); }
-                    if (lastRSI>70) { scoreSell+=8; reasons.push('RSI超买'); }
+                const lr=rsi[rsi.length-1];
+                if (lr!==null) {
+                    if (lr<30) sb+=8;
+                    if (lr>70) ss+=8;
                 }
                 const boll=calcBOLL(closes);
-                const lastUpper=boll.upper[boll.upper.length-1], lastLower=boll.lower[boll.lower.length-1];
-                if (lastLower!==null) {
-                    if (closes[closes.length-1] <= lastLower*1.01) { scoreBuy+=10; reasons.push('触及BOLL下轨'); }
-                    if (closes[closes.length-1] >= lastUpper*0.99) { scoreSell+=10; reasons.push('触及BOLL上轨'); }
+                const lu=boll.upper[boll.upper.length-1], ll=boll.lower[boll.lower.length-1];
+                if (ll!==null) {
+                    if (closes[closes.length-1]<=ll*1.01) sb+=10;
+                    if (closes[closes.length-1]>=lu*0.99) ss+=10;
                 }
-                const sr=findSupportResistance(klines);
-                if (sr.support>0) {
-                    const dist = (now-sr.support)/sr.support*100;
-                    if (dist<1.5) { scoreBuy+=12; reasons.push('接近支撑'); }
-                }
-                if (sr.resistance>0) {
-                    const dist = (sr.resistance-now)/now*100;
-                    if (dist<1.5) { scoreSell+=12; reasons.push('接近压力'); }
-                }
+                const sr=findSR(kls);
+                if (sr.s>0) { const dist=(now-sr.s)/sr.s*100; if (dist<1.5) sb+=12; }
+                if (sr.r>0) { const dist=(sr.r-now)/now*100; if (dist<1.5) ss+=12; }
             }
-
-            let targetSpread=0.005;
-            if (amp>4) targetSpread=0.015;
-            else if (amp>2.5) targetSpread=0.01;
-            else if (amp>1.5) targetSpread=0.007;
-
-            if (scoreBuy>20 && scoreSell>20 && Math.abs(scoreBuy-scoreSell)<10) {
-                scoreBuy=Math.floor(scoreBuy*0.6); scoreSell=Math.floor(scoreSell*0.6);
-                reasons.push('信号矛盾');
-            }
-
-            let action='wait', actionLabel='⏸ 建议观望不动', actionClass='wait';
-            let buyPrice=0, sellPrice=0;
-            if (scoreBuy>45 && scoreBuy>scoreSell+15) {
-                action='buy'; actionLabel='📈 适合做正T'; actionClass='buy';
-                buyPrice = now*(1-targetSpread*0.4); sellPrice = now*(1+targetSpread);
-            } else if (scoreSell>45 && scoreSell>scoreBuy+15) {
-                action='sell'; actionLabel='📉 适合做反T'; actionClass='sell';
-                sellPrice = now*(1+targetSpread*0.4); buyPrice = now*(1-targetSpread);
-            } else if (scoreBuy>30) {
-                action='lean_buy'; actionLabel='👀 偏多，可轻仓'; actionClass='buy';
-                buyPrice=now*0.997; sellPrice=now*1.008;
-            } else if (scoreSell>30) {
-                action='lean_sell'; actionLabel='👀 偏空，可轻仓'; actionClass='sell';
-                sellPrice=now*1.003; buyPrice=now*0.992;
-            } else {
-                buyPrice=now*0.995; sellPrice=now*1.005;
-            }
-
-            const showScore = Math.max(scoreBuy, scoreSell);
-            return {
-                action, actionLabel, actionClass,
-                buyPrice: +buyPrice.toFixed(2), sellPrice: +sellPrice.toFixed(2),
-                scorePercent: Math.min(100, Math.round(showScore/100*100)),
-                detailText: reasons.slice(0,3).join('; ') || '指标正常'
-            };
+            let ts=0.005;
+            if (amp>4) ts=0.015; else if (amp>2.5) ts=0.01; else if (amp>1.5) ts=0.007;
+            let action='wait', label='⏸ 建议观望不动', cls='wait';
+            let bp=0, sp=0;
+            if (sb>45&&sb>ss+15) { action='buy'; label='📈 适合做正T'; cls='buy'; bp=now*(1-ts*0.4); sp=now*(1+ts); }
+            else if (ss>45&&ss>sb+15) { action='sell'; label='📉 适合做反T'; cls='sell'; sp=now*(1+ts*0.4); bp=now*(1-ts); }
+            else if (sb>30) { action='lean_buy'; label='👀 偏多，可轻仓'; cls='buy'; bp=now*0.997; sp=now*1.008; }
+            else if (ss>30) { action='lean_sell'; label='👀 偏空，可轻仓'; cls='sell'; sp=now*1.003; bp=now*0.992; }
+            else { bp=now*0.995; sp=now*1.005; }
+            const sc=Math.max(sb,ss);
+            return { action,label,cls,buyPrice:+bp.toFixed(2),sellPrice:+sp.toFixed(2),scorePercent:Math.min(100,Math.round(sc/100*100)),detailText:reasons.slice(0,3).join('; ')||'指标正常'};
         }
 
-        // ==================== UI更新 ====================
-        function updatePriceUI() {
-            const p = priceData;
-            document.getElementById('priceNow').textContent = p.now>0 ? p.now.toFixed(2) : '--';
-            const chg = document.getElementById('priceChange');
-            if (p.now>0 && p.preClose>0) {
-                const diff = p.now - p.preClose;
-                const pct = diff / p.preClose * 100;
-                const sign = diff>=0 ? '+' : '';
-                chg.textContent = `${sign}${diff.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
-                chg.className = 'price-change ' + (diff>0?'up':'down');
-                document.getElementById('priceNow').style.color = diff>0 ? '#f85149' : '#3fb950';
+        function updateUI() {
+            const p=priceData;
+            document.getElementById('priceNow').textContent=p.now>0?p.now.toFixed(2):'--';
+            const chg=document.getElementById('priceChange');
+            if (p.now>0&&p.preClose>0) {
+                const diff=p.now-p.preClose, pct=diff/p.preClose*100;
+                const sign=diff>=0?'+':'';
+                chg.textContent=`${sign}${diff.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
+                chg.className='price-change '+(diff>0?'up':'down');
+                document.getElementById('priceNow').style.color=diff>0?'#f85149':'#3fb950';
             }
-            document.getElementById('stockNameFull').textContent = `${currentName || '--'} | ${currentCode}`;
-            document.getElementById('infoOpen').textContent = p.open>0?p.open.toFixed(2):'--';
-            document.getElementById('infoHigh').textContent = p.high>0?p.high.toFixed(2):'--';
-            document.getElementById('infoLow').textContent = p.low>0?p.low.toFixed(2):'--';
-            document.getElementById('infoPre').textContent = p.preClose>0?p.preClose.toFixed(2):'--';
-            const amp = p.amp || (p.high>0&&p.low>0?((p.high-p.low)/p.preClose*100):0);
-            document.getElementById('infoAmp').textContent = amp>0?amp.toFixed(2)+'%':'--';
-            document.getElementById('infoQrr').textContent = p.qrr>0?p.qrr.toFixed(2):'--';
-            document.getElementById('infoTurn').textContent = p.turnover>0?p.turnover.toFixed(2)+'%':'--';
-            document.getElementById('infoAmt').textContent = p.amount>0?(p.amount>=10000?(p.amount/10000).toFixed(2)+'亿':p.amount.toFixed(0)+'万'):'--';
+            document.getElementById('stockNameFull').textContent=`${currentName||'--'} | ${currentCode}`;
+            document.getElementById('infoOpen').textContent=p.open>0?p.open.toFixed(2):'--';
+            document.getElementById('infoHigh').textContent=p.high>0?p.high.toFixed(2):'--';
+            document.getElementById('infoLow').textContent=p.low>0?p.low.toFixed(2):'--';
+            document.getElementById('infoPre').textContent=p.preClose>0?p.preClose.toFixed(2):'--';
+            const amp=p.amp||(p.high>0&&p.low>0?((p.high-p.low)/p.preClose*100):0);
+            document.getElementById('infoAmp').textContent=amp>0?amp.toFixed(2)+'%':'--';
+            document.getElementById('infoQrr').textContent=p.qrr>0?p.qrr.toFixed(2):'--';
+            document.getElementById('infoTurn').textContent=p.turnover>0?p.turnover.toFixed(2)+'%':'--';
+            document.getElementById('infoAmt').textContent=p.amount>0?(p.amount>=10000?(p.amount/10000).toFixed(2)+'亿':p.amount.toFixed(0)+'万'):'--';
         }
 
-        function updateAI(analysis) {
-            document.getElementById('aiSignal').textContent = analysis.actionLabel;
-            document.getElementById('aiSignal').className = 'ai-signal ' + analysis.actionClass;
-            document.getElementById('aiDetail').textContent = analysis.detailText;
-            document.getElementById('aiSellPrice').textContent = analysis.sellPrice>0?analysis.sellPrice.toFixed(2):'--';
-            document.getElementById('aiBuyPrice').textContent = analysis.buyPrice>0?analysis.buyPrice.toFixed(2):'--';
-            document.getElementById('scoreFill').style.width = analysis.scorePercent+'%';
-            const fill = document.getElementById('scoreFill');
-            fill.style.background = analysis.actionClass==='buy'?'#f85149':analysis.actionClass==='sell'?'#3fb950':'#d2991d';
-            document.getElementById('scoreText').textContent = analysis.scorePercent;
-            document.getElementById('aiUpdateTime').textContent = new Date().toLocaleTimeString('zh-CN');
+        function updateAI(a) {
+            document.getElementById('aiSignal').textContent=a.label;
+            document.getElementById('aiSignal').className='ai-signal '+a.cls;
+            document.getElementById('aiDetail').textContent=a.detailText;
+            document.getElementById('aiSellPrice').textContent=a.sellPrice>0?a.sellPrice.toFixed(2):'--';
+            document.getElementById('aiBuyPrice').textContent=a.buyPrice>0?a.buyPrice.toFixed(2):'--';
+            document.getElementById('scoreFill').style.width=a.scorePercent+'%';
+            const f=document.getElementById('scoreFill');
+            f.style.background=a.cls==='buy'?'#f85149':a.cls==='sell'?'#3fb950':'#d2991d';
+            document.getElementById('scoreText').textContent=a.scorePercent;
+            document.getElementById('aiUpdateTime').textContent=new Date().toLocaleTimeString('zh-CN');
         }
 
         function drawChart() {
-            const container = document.getElementById('chartContainer');
-            const canvas = document.getElementById('chartCanvas');
-            const dpr = window.devicePixelRatio || 1;
-            const rect = container.getBoundingClientRect();
-            const w = rect.width - 8, h = rect.height - 8;
-            canvas.width = w * dpr; canvas.height = h * dpr;
-            canvas.style.width = w+'px'; canvas.style.height = h+'px';
-            const ctx = canvas.getContext('2d');
-            ctx.scale(dpr, dpr);
+            const c=document.getElementById('chartContainer');
+            const cv=document.getElementById('chartCanvas');
+            const dpr=window.devicePixelRatio||1;
+            const r=c.getBoundingClientRect();
+            const w=r.width-8, h=r.height-8;
+            cv.width=w*dpr; cv.height=h*dpr;
+            cv.style.width=w+'px'; cv.style.height=h+'px';
+            const ctx=cv.getContext('2d');
+            ctx.scale(dpr,dpr);
             ctx.clearRect(0,0,w,h);
-
-            if (minuteData.length < 5) {
-                ctx.fillStyle = '#8b949e'; ctx.font = '14px sans-serif';
-                ctx.textAlign = 'center'; ctx.fillText('分时数据加载中...', w/2, h/2);
+            if (minuteData.length<5) {
+                ctx.fillStyle='#8b949e'; ctx.font='14px sans-serif';
+                ctx.textAlign='center'; ctx.fillText('分时数据加载中...',w/2,h/2);
                 return;
             }
-            const prices = minuteData.map(m=>m.price);
-            const avgs = minuteData.map(m=>m.avg).filter(a=>a>0);
-            let minP = Math.min(...prices), maxP = Math.max(...prices);
-            if (priceData.high>0) maxP = Math.max(maxP, priceData.high);
-            if (priceData.low>0) minP = Math.min(minP, priceData.low);
-            const range = maxP - minP || 1;
-            const pad = range * 0.1;
-            const yMin = minP - pad, yMax = maxP + pad;
-            const margin = {top:20,right:15,bottom:25,left:55};
-            const pw = w - margin.left - margin.right, ph = h - margin.top - margin.bottom;
-            const xPos = i => margin.left + (i / Math.max(minuteData.length-1,1)) * pw;
-            const yPos = p => margin.top + ph - ((p - yMin) / (yMax - yMin)) * ph;
-
-            // 网格
-            ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth=0.5;
+            const prices=minuteData.map(m=>m.price);
+            let minP=Math.min(...prices), maxP=Math.max(...prices);
+            if (priceData.high>0) maxP=Math.max(maxP,priceData.high);
+            if (priceData.low>0) minP=Math.min(minP,priceData.low);
+            const range=maxP-minP||1, pad=range*0.1;
+            const yMin=minP-pad, yMax=maxP+pad;
+            const margin={top:20,right:15,bottom:25,left:55};
+            const pw=w-margin.left-margin.right, ph=h-margin.top-margin.bottom;
+            const xP=i=>margin.left+(i/Math.max(minuteData.length-1,1))*pw;
+            const yP=p=>margin.top+ph-((p-yMin)/(yMax-yMin))*ph;
+            ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=0.5;
             for (let i=0;i<=5;i++) {
-                const y = margin.top + (ph/5)*i;
+                const y=margin.top+(ph/5)*i;
                 ctx.beginPath(); ctx.moveTo(margin.left,y); ctx.lineTo(w-margin.right,y); ctx.stroke();
                 ctx.fillStyle='#8b949e'; ctx.font='10px sans-serif'; ctx.textAlign='right';
-                ctx.fillText((yMax - (yMax-yMin)*(i/5)).toFixed(2), margin.left-4, y+3);
+                ctx.fillText((yMax-(yMax-yMin)*(i/5)).toFixed(2),margin.left-4,y+3);
             }
-            // 昨收线
-            if (priceData.preClose>=yMin && priceData.preClose<=yMax) {
-                const yp = yPos(priceData.preClose);
+            if (priceData.preClose>=yMin&&priceData.preClose<=yMax) {
+                const yp=yP(priceData.preClose);
                 ctx.setLineDash([5,5]); ctx.strokeStyle='rgba(255,255,255,0.2)';
                 ctx.beginPath(); ctx.moveTo(margin.left,yp); ctx.lineTo(w-margin.right,yp); ctx.stroke();
                 ctx.setLineDash([]);
             }
-            // 分时线
             ctx.strokeStyle='#58a6ff'; ctx.lineWidth=2; ctx.beginPath();
-            minuteData.forEach((m,i) => {
-                const x=xPos(i), y=yPos(m.price);
-                i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+            minuteData.forEach((m,i)=>{
+                const x=xP(i), y=yP(m.price);
+                i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
             });
             ctx.stroke();
-            // 均线
-            if (avgs.length>5) {
-                ctx.strokeStyle='#d2991d'; ctx.lineWidth=1.3; ctx.setLineDash([4,3]); ctx.beginPath();
-                let started=false;
-                minuteData.forEach((m,i) => {
-                    if (m.avg>0) {
-                        const x=xPos(i), y=yPos(m.avg);
-                        if (!started) { ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
-                    }
-                });
-                ctx.stroke(); ctx.setLineDash([]);
-            }
         }
 
-        // ==================== 核心加载 ====================
         async function searchStock() {
-            const input = document.getElementById('codeInput').value.trim();
-            if (!input) return showToast('请输入股票代码', 'warn');
-            const full = toFullCode(input);
-            if (!full) return showToast('代码格式错误（6位数字）', 'warn');
-            currentCode = input;
-            currentFullCode = full;
-            document.getElementById('aiSignal').textContent = '⏳ 加载中...';
+            const input=document.getElementById('codeInput').value.trim();
+            if (!input) return showToast('请输入股票代码','warn');
+            const full=toFullCode(input);
+            if (!full) return showToast('代码格式错误（6位数字）','warn');
+            currentCode=input;
+            currentFullCode=full;
+            document.getElementById('aiSignal').textContent='⏳ 加载中...';
             try {
-                const [quote, mins, klines] = await Promise.all([
-                    fetchQuote(full),
-                    fetchMinuteData(full),
-                    fetchKline(full)
-                ]);
-                if (!quote || quote.now <= 0) throw new Error('未获取到行情');
-                currentName = quote.name || input;
-                priceData = { ...quote, amp:0 };
-                minuteData = mins;
-                dailyKlines = klines;
-                updatePriceUI();
+                const [quote,mins,kls]=await Promise.all([fetchQuote(full),fetchMinuteData(full),fetchKline(full)]);
+                if (!quote||quote.now<=0) throw new Error('未获取到行情');
+                currentName=quote.name||input;
+                priceData={...quote,amp:0};
+                minuteData=mins;
+                dailyKlines=kls;
+                updateUI();
                 drawChart();
-                if (dailyKlines.length >= 20) {
-                    const analysis = aiAnalyze(priceData, minuteData, dailyKlines);
-                    updateAI(analysis);
+                if (dailyKlines.length>=20) {
+                    updateAI(aiAnalyze(priceData,minuteData,dailyKlines));
                 } else {
-                    document.getElementById('aiSignal').textContent = '数据不足';
+                    document.getElementById('aiSignal').textContent='数据不足';
                 }
-            } catch (e) {
-                document.getElementById('aiSignal').textContent = '⚠ 获取失败';
-                showToast('获取失败，请重试', 'warn');
-                console.error(e);
+            } catch(e) {
+                document.getElementById('aiSignal').textContent='⚠ 获取失败';
+                showToast('获取失败，请重试','warn');
             }
         }
 
-        // 回车查询
-        document.getElementById('codeInput').addEventListener('keypress', e => {
-            if (e.key === 'Enter') searchStock();
-        });
-
-        // 默认展示茅台（可选）
-        window.addEventListener('load', () => {
-            document.getElementById('codeInput').value = '600519';
-            searchStock();
-        });
+        document.getElementById('codeInput').addEventListener('keypress',e=>{if(e.key==='Enter')searchStock();});
+        window.addEventListener('load',()=>{document.getElementById('codeInput').value='600519';searchStock();});
     </script>
 </body>
 </html>
